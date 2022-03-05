@@ -1,198 +1,277 @@
 #include <amxmodx>
-
-/* ~ [ Настройки ] ~ */
-// Редирект
-#define REDIRECT false					// Включён ли редирект на IP, указанный в REDIRECT_IP
-#define REDIRECT_IP "127.0.0.1:27015"	// IP на который будет совершён редирект
-#define REDIRECT_TIME 3.0				// Время после подключения до начала редиректа (0.0 - мгновенно)
-
-// Перемещение
-#define STOP_MOVEMENTS true			// Запретить передвижение игрокам
-
-// Потемнение экрана
-#define BLIND true					// Затемнять экран игрокам
-#define BLIND_DELAY 0.0				// Задержка перед затемнением экрана (0.0 - мгновенно)
-
-// Сообщение в чат
-#define CHAT_MESSAGE true			// Выводить ли сообщение в чат 
-#define CHAT_MESSAGE_DELAY 5.0		// Задержка перед выводом сообщения, после подключения к серверу
-#define CHAT_MESSAGE_INTERVAL 3.0		// Интервал между следующим выводом этого сообщения(0.0 - выведет сообщение только один раз)
-// Текст, который будет выводится в чат (^4 - зелёный, ^3 - цвет команды, ^1 - обычный)
-new const CHAT_MESSAGE_TEXT[] = "^4[Перенаправление] ^1К сожалению мы переехали на новый IP адрес!"
-
-// Сообщение по центру экрана (dhud)
-#define DHUD_MESSAGE true			// Выводить ли DHUD сообщение на экран
-#define DHUD_MESSAGE_AOD true		// Если true, то сообщение будет на экране постоянно, иначе - исчезнет после показа
-#define DHUD_MESSAGE_DELAY 5.0		// Задержка перед выводом DHUD сообщения, после подключения к серверу
-// Текст, который будет выводится в DHUD (^4 - зелёный, ^3 - цвет команды, ^1 - обычный)
-new const DHUD_MESSAGE_TEXT[] = "^4[Перенаправление] ^1К сожалению мы переехали на новый IP адрес!"
-#define DHUD_COORD "-1.0 -1.0"		// Координаты DHUD (x, y). -1.0 — означает по центру координатной оси.
-#define DHUD_COLOR "255 255 255"	// Цвет DHUD сообщения в формате RGB
-/* ~~~~~~~~~~~~~~~~~ */
+#include <hamsandwich>
+#include <fakemeta>
 
 #define TASK_REDIRECT 55151
 #define TASK_CHAT_MESSAGE 55152
 #define TASK_DHUD_OUTPUT 55153
-#define TASK_DHUD_MESSAGE 55153
-#define TASK_BLIND 55154
+#define TASK_DHUD_MESSAGE 55154
 
-#if DHUD_MESSAGE == true
-	new Float:dhud_coord[2], dhud_color[3]
-#endif
-
-#if BLIND == true
-	new gmsgFade
-#endif
-
-#if STOP_MOVEMENTS == true
-	#include <fun>
-	#include <hamsandwich>
-#endif
+new mh_redirect, mh_redirect_ip[32], Float:mh_redirect_delay
+new mh_stop_movements
+new mh_blind
+new mh_chat_message, Float:mh_chat_message_delay, Float:mh_chat_message_interval, mh_chat_message_text[128]
+new mh_dhud_message, mh_dhud_message_aod, Float:mh_dhud_message_delay, mh_dhud_coord[32], Float:mh_dhud_fcoord[2], mh_dhud_colors[32], mh_dhud_icolors[3], mh_dhud_message_text[128]
 
 public plugin_init()
 {
 	register_plugin("Move Helper", "22.03.05", "Oli")
-	
-	#if BLIND == true
-		gmsgFade = get_user_msgid("ScreenFade")
-	#endif
 
-	#if BLIND == true || STOP_MOVEMENTS == true
-		RegisterHam(Ham_Spawn, "player", "fw_Ham_Spawn")
-	#endif
+	bind_pcvar_num(create_cvar(
+		"mh_redirect", // Квар
+		"0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 1.0,
+		.description = "Производить ли редирект через client_cmd на IP в кваре mh_redirect_ip? (1 - да, 0 - нет)^nВнимание: это ЗАПРЕЩЕНО всеми мониторингами!"
+	), mh_redirect)
+
+	bind_pcvar_string(create_cvar(
+		"mh_redirect_ip", // Квар
+		"127.0.0.1:27015", // Значение по умолчанию
+		.description = "Если mh_redirect = 1^nАйпи, на который будет произведён редирект"
+	), mh_redirect_ip, charsmax(mh_redirect_ip))
+
+	bind_pcvar_float(create_cvar(
+		"mh_redirect_delay", // Квар
+		"5.0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 3600.0,
+		.description = "Если mh_redirect = 1^nВремя после подключения до начала редиректа (0.0 - мгновенно)"
+	), mh_redirect_delay)
+
+	bind_pcvar_num(create_cvar(
+		"mh_stop_movements", // Квар
+		"0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 1.0,
+		.description = "Запретить передвижение игрокам? (1 - да, 0 - нет)"
+	), mh_stop_movements)
+
+	bind_pcvar_num(create_cvar(
+		"mh_blind", // Квар
+		"0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 1.0,
+		.description = "Затемнять экран игрокам? (1 - да, 0 - нет)"
+	), mh_blind)
+
+	bind_pcvar_num(create_cvar(
+		"mh_chat_message", // Квар
+		"0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 1.0,
+		.description = "Выводить ли текст mh_chat_message_text в чат? (1 - да, 0 - нет)"
+	), mh_chat_message)
+
+	bind_pcvar_float(create_cvar(
+		"mh_chat_message_delay", // Квар
+		"5.0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 3600.0,
+		.description = "Если mh_chat_message = 1^nЗадержка перед выводом сообщения, после подключения к серверу (0.0 - мгновенно)"
+	), mh_redirect_delay)
+
+	bind_pcvar_float(create_cvar(
+		"mh_chat_message_interval", // Квар
+		"5.0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 3600.0,
+		.description = "Если mh_chat_message = 1^nИнтервал между следующим выводом этого сообщения(0.0 - выведет сообщение только один раз)"
+	), mh_chat_message_interval)
+
+	bind_pcvar_string(create_cvar(
+		"mh_chat_message_text", // Квар
+		"!g[Перенаправление] !yК сожалению мы переехали на новый IP адрес!", // Значение по умолчанию
+		.description = "Если mh_chat_message = 1^nСообщение, выводимое в чат^nЦвета: !g - зелёный, !t - команды, !y - жёлтый"
+	), mh_chat_message_text, charsmax(mh_chat_message_text))
+
+	bind_pcvar_num(create_cvar(
+		"mh_dhud_message", // Квар
+		"0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 1.0,
+		.description = "Выводить ли текст mh_dhud_message_text в дхуд? (1 - да, 0 - нет)"
+	), mh_dhud_message)
+
+	bind_pcvar_num(create_cvar(
+		"mh_dhud_message_aod", // Квар
+		"0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 1.0,
+		.description = "Постоянный показ dhud на экране, без исчезновения (1 - да, 0 - нет)"
+	), mh_dhud_message_aod)
+
+	bind_pcvar_float(create_cvar(
+		"mh_dhud_message_delay", // Квар
+		"5.0", // Значение по умолчанию
+		.has_min = true,
+		.min_val = 0.0,
+		.has_max = true,
+		.max_val = 3600.0,
+		.description = "Задержка перед выводом сообщения в dhud, после подключения к серверу (0.0 - мгновенно)"
+	), mh_dhud_message_delay)
+
+	bind_pcvar_string(create_cvar(
+		"mh_dhud_coord", // Квар
+		"-1.0 0.35", // Значение по умолчанию
+		.description = "Координаты dhud в формате x y"
+	), mh_dhud_coord, charsmax(mh_dhud_coord))
+
+	bind_pcvar_string(create_cvar(
+		"mh_dhud_colors", // Квар
+		"255 255 255", // Значение по умолчанию
+		.description = "Цвет dhud в формате RGB"
+	), mh_dhud_colors, charsmax(mh_dhud_colors))
+
+	bind_pcvar_string(create_cvar(
+		"mh_dhud_message_text", // Квар
+		"!g[Перенаправление] !yК сожалению мы переехали на новый IP адрес!", // Значение по умолчанию
+		.description = "Сообщение, выводимое в dhud"
+	), mh_dhud_message_text, charsmax(mh_dhud_message_text))
+
+	AutoExecConfig()
+
+	RegisterHam(Ham_Spawn, "player", "fw_Ham_Spawn_post", 1)
 }
 
-#if DHUD_MESSAGE == true
-public plugin_precache()
+public plugin_cfg()
 {
-	new szBuffer1[10], szBuffer2[10], szBuffer3[10]
+	if (mh_chat_message)
+	{
+		replace_all(mh_chat_message_text, charsmax(mh_chat_message_text), "!g", "^4")
+		replace_all(mh_chat_message_text, charsmax(mh_chat_message_text), "!y", "^1")
+		replace_all(mh_chat_message_text, charsmax(mh_chat_message_text), "!t", "^3")
+	}
 
-	parse(DHUD_COORD, szBuffer1, charsmax(szBuffer1), szBuffer2, charsmax(szBuffer2))
-	dhud_coord[0] = str_to_float(szBuffer1)
-	dhud_coord[1] = str_to_float(szBuffer2)
+	if (mh_dhud_message)
+	{
+		new szLeft[32], szRight[32]
+		strtok(mh_dhud_colors, szLeft, charsmax(szLeft), szRight, charsmax(szRight))
+		mh_dhud_icolors[0] = str_to_num(szLeft)
+		strtok(szRight, szLeft, charsmax(szLeft), szRight, charsmax(szRight))
+		mh_dhud_icolors[1] = str_to_num(szLeft)
+		mh_dhud_icolors[2] = str_to_num(szRight)
 
-	parse(DHUD_COLOR, szBuffer1, charsmax(szBuffer1), szBuffer2, charsmax(szBuffer2), szBuffer3, charsmax(szBuffer3))
-	dhud_color[0] = str_to_num(szBuffer1)
-	dhud_color[1] = str_to_num(szBuffer2)
-	dhud_color[2] = str_to_num(szBuffer3)
+		strtok(mh_dhud_coord, szLeft, charsmax(szLeft), szRight, charsmax(szRight))
+		mh_dhud_fcoord[0] = str_to_float(szLeft)
+		mh_dhud_fcoord[1] = str_to_float(szRight)
+	}
 }
-#endif
 
 public client_connect(id)
 {	
-	#if REDIRECT == true
-		if (REDIRECT_TIME <= 0.0)
-			redirect(id)
-	#endif
+	if (mh_redirect && mh_redirect_delay <= 0.0)
+		redirect(id)
 }
 
 public client_putinserver(id)
 {
-	#if REDIRECT == true
-		set_task(REDIRECT_TIME < 0.1 ? 0.1 : REDIRECT_TIME, "redirect", id+TASK_REDIRECT)
-	#endif
+	if (mh_redirect)
+		set_task(mh_redirect_delay < 0.1 ? 0.1 : mh_redirect_delay, "redirect", id+TASK_REDIRECT)
 
-	#if CHAT_MESSAGE == true
-		set_task(CHAT_MESSAGE_DELAY < 0.1 ? 0.1 : CHAT_MESSAGE_DELAY, "message", id+TASK_CHAT_MESSAGE)
-	#endif
+	if (mh_chat_message)
+		set_task(mh_chat_message_delay < 0.1 ? 0.1 : mh_chat_message_delay, "message", id+TASK_CHAT_MESSAGE)
 
-	#if DHUD_MESSAGE == true
-		set_task(DHUD_MESSAGE_DELAY < 0.1 ? 0.1 : DHUD_MESSAGE_DELAY, "dhud_output", id+TASK_DHUD_OUTPUT)
-	#endif
+	if (mh_dhud_message)
+		set_task(mh_dhud_message_delay < 0.1 ? 0.1 : mh_dhud_message_delay, "dhud_output", id+TASK_DHUD_OUTPUT)
 
-	#if BLIND == true
+	if (mh_blind)
 		amx_blind(id)
-	#endif
 }
 
-#if STOP_MOVEMENTS == true || BLIND == true
-public fw_Ham_Spawn(id)
+public fw_Ham_Spawn_post(id)
 {
-	#if BLIND == true
+	if (!is_user_alive(id))
+		return
+	
+	if (mh_blind)
 		amx_blind(id)
-	#endif
 
-	#if STOP_MOVEMENTS == true
-		set_user_maxspeed(id, 0.0)
-	#endif
+	if (mh_stop_movements)
+		set_pev(id, pev_flags, pev(id, pev_flags) | FL_FROZEN)
 }
-#endif
 
-#if REDIRECT == true
 public redirect(taskid)	
 {
+	new id
 	if (taskid > TASK_REDIRECT)
-		if (!is_user_connected(taskid-TASK_REDIRECT))
-			return
+		id = taskid-TASK_REDIRECT
+	else
+		id = taskid
 
-	client_cmd(taskid > TASK_REDIRECT ? taskid-TASK_REDIRECT : taskid, "connect %s", "REDIRECT_IP")
+	if (!is_user_connected(id))
+		return
+
+	client_cmd(id, "connect %s", mh_redirect_ip)
 }
-#endif
 
-#if CHAT_MESSAGE == true
 public message(taskid)
 {
-	if (!is_user_connected(taskid-TASK_CHAT_MESSAGE))
+	new id = taskid-TASK_CHAT_MESSAGE
+	if (!is_user_connected(id))
 		return
 
-	if (!CHAT_MESSAGE_TEXT[0])
+	if (!mh_chat_message_text[0])
 		return
 
-	client_print_color(taskid-TASK_CHAT_MESSAGE, print_team_default, "%s", CHAT_MESSAGE_TEXT)
+	client_print_color(id, print_team_default, "%s", mh_chat_message_text)
 
-	if (CHAT_MESSAGE_INTERVAL > 0.0)
-		set_task(CHAT_MESSAGE_INTERVAL < 0.1 ? 0.1 : CHAT_MESSAGE_INTERVAL, "message", taskid)
+	if (mh_chat_message_interval > 0.0)
+		set_task(mh_chat_message_interval < 0.1 ? 0.1 : mh_chat_message_interval, "message", taskid)
 }
-#endif
 
 public dhud_output(taskid)
 {
-	if (!is_user_connected(taskid-TASK_DHUD_OUTPUT))
+	new id = taskid-TASK_DHUD_OUTPUT
+	if (!is_user_connected(id))
 		return
 
-	#if DHUD_MESSAGE_AOD == true
-		set_task(0.8, "dhud", taskid-TASK_DHUD_OUTPUT+TASK_DHUD_MESSAGE, .flags="b")
-	#else
-		set_task(0.8, "dhud", taskid-TASK_DHUD_OUTPUT+TASK_DHUD_MESSAGE)
-	#endif
+	if (mh_dhud_message_aod)
+		set_task(0.8, "dhud", id+TASK_DHUD_MESSAGE, .flags="b")
+	else
+		set_task(0.8, "dhud", id+TASK_DHUD_MESSAGE)
 }
 
-#if DHUD_MESSAGE == true
 public dhud(taskid)
 {
-	if (!is_user_connected(taskid-TASK_DHUD_MESSAGE))
+	new id = taskid-TASK_DHUD_MESSAGE
+	if (!is_user_connected(id))
 		return
 
-	if (!DHUD_MESSAGE_TEXT[0])
+	if (!mh_dhud_message_text[0])
 		return
 
-	set_dhudmessage(dhud_color[0], dhud_color[1], dhud_color[2], dhud_coord[0], dhud_coord[0], 0, 0.0, 3.0, 2.0, 1.0)
-	show_dhudmessage(taskid-TASK_DHUD_MESSAGE, "%s", DHUD_MESSAGE_TEXT)
+	set_dhudmessage(mh_dhud_icolors[0], mh_dhud_icolors[1], mh_dhud_icolors[2], mh_dhud_fcoord[0], mh_dhud_fcoord[1], 0, 0.0, 3.0, 2.0, 1.0)
+	show_dhudmessage(id, "%s", mh_dhud_message_text)
 }
-#endif
 
-#if BLIND == true
 public amx_blind(id)
 { 
 	if (!is_user_connected(id))
 		return
 
-	if (BLIND_DELAY < 0.0)
-		blind(id)
-	else
-		set_task(BLIND_DELAY < 0.1 ? 0.1 : BLIND_DELAY, "delay_blind", id+TASK_BLIND)
-}
+	static gmsgFade
+	if (!gmsgFade)
+		gmsgFade = get_user_msgid("ScreenFade")
 
-public delay_blind(taskid)
-{
-	if (!is_user_connected(taskid-TASK_BLIND))
-		return
-
-	blind(taskid-TASK_BLIND)
-}
-
-public blind(id)
-{
 	message_begin(MSG_ONE, gmsgFade, {0,0,0}, id) // use the magic #1 for "one client" 
 	write_short(1<<0) // fade lasts this long duration 
 	write_short(1<<0) // fade lasts this long hold time 
@@ -203,5 +282,3 @@ public blind(id)
 	write_byte(255) // fade alpha  
 	message_end() 
 }
-#endif
-
