@@ -15,7 +15,7 @@ new mh_dhud_message, mh_dhud_message_aod, Float:mh_dhud_message_delay, mh_dhud_c
 
 public plugin_init()
 {
-	register_plugin("Move Helper", "22.03.05", "Oli")
+	register_plugin("Move Helper", "17.03.22", "Oli")
 
 	bind_pcvar_num(create_cvar(
 		"mh_redirect", // Квар
@@ -45,7 +45,7 @@ public plugin_init()
 
 	bind_pcvar_num(create_cvar(
 		"mh_stop_movements", // Квар
-		"0", // Значение по умолчанию
+		"1", // Значение по умолчанию
 		.has_min = true,
 		.min_val = 0.0,
 		.has_max = true,
@@ -55,7 +55,7 @@ public plugin_init()
 
 	bind_pcvar_num(create_cvar(
 		"mh_blind", // Квар
-		"0", // Значение по умолчанию
+		"1", // Значение по умолчанию
 		.has_min = true,
 		.min_val = 0.0,
 		.has_max = true,
@@ -143,7 +143,7 @@ public plugin_init()
 
 	bind_pcvar_string(create_cvar(
 		"mh_dhud_message_text", // Квар
-		"!g[Перенаправление] !yК сожалению мы переехали на новый IP адрес!", // Значение по умолчанию
+		"[Перенаправление] К сожалению мы переехали на новый IP адрес!", // Значение по умолчанию
 		.description = "Сообщение, выводимое в dhud"
 	), mh_dhud_message_text, charsmax(mh_dhud_message_text))
 
