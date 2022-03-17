@@ -65,7 +65,7 @@ public plugin_init()
 
 	bind_pcvar_num(create_cvar(
 		"mh_chat_message", // Квар
-		"0", // Значение по умолчанию
+		"1", // Значение по умолчанию
 		.has_min = true,
 		.min_val = 0.0,
 		.has_max = true,
@@ -101,7 +101,7 @@ public plugin_init()
 
 	bind_pcvar_num(create_cvar(
 		"mh_dhud_message", // Квар
-		"0", // Значение по умолчанию
+		"1", // Значение по умолчанию
 		.has_min = true,
 		.min_val = 0.0,
 		.has_max = true,
@@ -111,7 +111,7 @@ public plugin_init()
 
 	bind_pcvar_num(create_cvar(
 		"mh_dhud_message_aod", // Квар
-		"0", // Значение по умолчанию
+		"1", // Значение по умолчанию
 		.has_min = true,
 		.min_val = 0.0,
 		.has_max = true,
@@ -152,7 +152,7 @@ public plugin_init()
 	RegisterHam(Ham_Spawn, "player", "fw_Ham_Spawn_post", 1)
 }
 
-public plugin_cfg()
+public OnConfigsExecuted()
 {
 	if (mh_chat_message)
 	{
