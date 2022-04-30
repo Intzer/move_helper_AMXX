@@ -10,7 +10,7 @@
 
 #define TASK_REDIRECT 55151
 #define TASK_CHAT_MESSAGE 55152
-#define TASK_DHUD_MESSAGE 55154
+#define TASK_DHUD_MESSAGE 55153
 
 new mh_redirect, mh_redirect_ip[32], Float:mh_redirect_delay
 new mh_stop_movements
@@ -145,14 +145,14 @@ public OnConfigsExecuted()
 		get_cvar_string("mh_dhud_message_text", mh_dhud_message_text, charsmax(mh_dhud_message_text))
 	#endif
 
-	if (mh_chat_message_interval < 0.1)
-		mh_chat_message_interval = 0.1
-
 	if (mh_chat_message)
 	{
 		replace_all(mh_chat_message_text, charsmax(mh_chat_message_text), "!g", "^4")
 		replace_all(mh_chat_message_text, charsmax(mh_chat_message_text), "!y", "^1")
 		replace_all(mh_chat_message_text, charsmax(mh_chat_message_text), "!t", "^3")
+
+		if (mh_chat_message_interval < 0.1)
+			mh_chat_message_interval = 0.1
 	}
 
 	if (mh_dhud_message)
