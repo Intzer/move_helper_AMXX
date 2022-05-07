@@ -4,6 +4,7 @@
 
 #if AMXX_VERSION_NUM < 183
 	#define AMXX_182
+	#include <dhudmessage>
 	#include <colorchat>
 	#define client_disconnected client_disconnect
 #endif
@@ -11,6 +12,8 @@
 #define TASK_REDIRECT 55151
 #define TASK_CHAT_MESSAGE 55152
 #define TASK_DHUD_MESSAGE 55153
+
+#define CONFIG_FILE	"plugin-move_helper"
 
 new mh_redirect, mh_redirect_ip[32], Float:mh_redirect_delay
 new mh_stop_movements
@@ -20,10 +23,10 @@ new mh_dhud_message, mh_dhud_coord[32], Float:mh_dhud_fcoord[2], mh_dhud_colors[
 
 public plugin_init()
 {
-	register_plugin("Move Helper", "30.04.22", "Oli")
+	register_plugin("Move Helper", "07.05.22", "Oli")
 	RegisterHam(Ham_Spawn, "player", "fw_PlayerSpawn_Post", true)
 
-	#if define AMXX_182
+	#if defined AMXX_182
 		register_cvar("mh_redirect", "0")
 		register_cvar("mh_redirect_ip", "127.0.0.1:27015")
 		register_cvar("mh_redirect_delay", "5.0")
@@ -37,6 +40,7 @@ public plugin_init()
 		register_cvar("mh_dhud_colors", "255 255 255")
 		register_cvar("mh_dhud_message_text", "[Перенаправление] К сожалению мы переехали на новый IP адрес!")
 
+		server_cmd("exec addons/amxmodx/configs/plugins/%s.cfg", CONFIG_FILE)
 		set_task(3.0, "OnConfigsExecuted")
 	#else
 		bind_pcvar_num(create_cvar(
@@ -111,26 +115,13 @@ public plugin_init()
 			.description = "Сообщение, выводимое в dhud"
 		), mh_dhud_message_text, charsmax(mh_dhud_message_text))
 
-		AutoExecConfig()
+		AutoExecConfig(.name = CONFIG_FILE)
 	#endif
 }
 
 public OnConfigsExecuted()
 {
 	#if defined AMXX_182
-		register_cvar("mh_redirect", "0")
-		register_cvar("mh_redirect_ip", "127.0.0.1:27015")
-		register_cvar("mh_redirect_delay", "5.0")
-		register_cvar("mh_stop_movements", "1")
-		register_cvar("mh_blind", "1")
-		register_cvar("mh_chat_message", "1")
-		register_cvar("mh_chat_message_interval", "5.0")
-		register_cvar("mh_chat_message_text", "!g[Перенаправление] !yК сожалению мы переехали на новый IP адрес!")
-		register_cvar("mh_dhud_message", "1")
-		register_cvar("mh_dhud_coord", "-1.0 0.35")
-		register_cvar("mh_dhud_colors", "255 255 255")
-		register_cvar("mh_dhud_message_text", "[Перенаправление] К сожалению мы переехали на новый IP адрес!")
-
 		mh_redirect = get_cvar_num("mh_redirect")
 		get_cvar_string("mh_redirect_ip", mh_redirect_ip, charsmax(mh_redirect_ip))
 		mh_redirect_delay = get_cvar_float("mh_redirect_delay")
@@ -201,7 +192,7 @@ public client_disconnected(id)
 public fw_PlayerSpawn_Post(id)
 {
 	if (!is_user_alive(id))
-		return HAM_IGONRED
+		return HAM_IGNORED
 	
 	if (mh_blind)
 		util_blind(id)
@@ -209,7 +200,7 @@ public fw_PlayerSpawn_Post(id)
 	if (mh_stop_movements)
 		set_pev(id, pev_flags, pev(id, pev_flags) | FL_FROZEN)
 
-	return HAM_IGONRED
+	return HAM_IGNORED
 }
 
 public make_redirect(taskid)	
