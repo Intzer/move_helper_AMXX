@@ -7,6 +7,7 @@
 	#include <dhudmessage>
 	#include <colorchat>
 	#define client_disconnected client_disconnect
+	#define create_cvar register_cvar
 #endif
 
 #define TASK_REDIRECT 55151
@@ -23,118 +24,41 @@ new mh_dhud_message, mh_dhud_coord[32], Float:mh_dhud_fcoord[2], mh_dhud_colors[
 
 public plugin_init()
 {
-	register_plugin("Move Helper", "07.05.22", "Oli")
+	register_plugin("Move Helper", "08.05.22", "Oli")
 	RegisterHam(Ham_Spawn, "player", "fw_PlayerSpawn_Post", true)
 
-	#if defined AMXX_182
-		register_cvar("mh_redirect", "0")
-		register_cvar("mh_redirect_ip", "127.0.0.1:27015")
-		register_cvar("mh_redirect_delay", "5.0")
-		register_cvar("mh_stop_movements", "1")
-		register_cvar("mh_blind", "1")
-		register_cvar("mh_chat_message", "1")
-		register_cvar("mh_chat_message_interval", "5.0")
-		register_cvar("mh_chat_message_text", "!g[Перенаправление] !yК сожалению мы переехали на новый IP адрес!")
-		register_cvar("mh_dhud_message", "1")
-		register_cvar("mh_dhud_coord", "-1.0 0.35")
-		register_cvar("mh_dhud_colors", "255 255 255")
-		register_cvar("mh_dhud_message_text", "[Перенаправление] К сожалению мы переехали на новый IP адрес!")
+	create_cvar("mh_redirect", "0")
+	create_cvar("mh_redirect_ip", "127.0.0.1:27015")
+	create_cvar("mh_redirect_delay", "5.0")
+	create_cvar("mh_stop_movements", "1")
+	create_cvar("mh_blind", "1")
+	create_cvar("mh_chat_message", "1")
+	create_cvar("mh_chat_message_interval", "5.0")
+	create_cvar("mh_chat_message_text", "!g[Перенаправление] !yК сожалению мы переехали на новый IP адрес!")
+	create_cvar("mh_dhud_message", "1")
+	create_cvar("mh_dhud_coord", "-1.0 0.35")
+	create_cvar("mh_dhud_colors", "255 255 255")
+	create_cvar("mh_dhud_message_text", "[Перенаправление] К сожалению мы переехали на новый IP адрес!")
 
-		server_cmd("exec addons/amxmodx/configs/plugins/%s.cfg", CONFIG_FILE)
-		set_task(3.0, "OnConfigsExecuted")
-	#else
-		bind_pcvar_num(create_cvar(
-			"mh_redirect",
-			"0",
-			.description = "Производить ли редирект через client_cmd на IP в кваре mh_redirect_ip? (1 - да, 0 - нет)^nВнимание: это ЗАПРЕЩЕНО всеми мониторингами!"
-		), mh_redirect)
-
-		bind_pcvar_string(create_cvar(
-			"mh_redirect_ip",
-			"127.0.0.1:27015",
-			.description = "Айпи, на который будет произведён прямой редирект, если включена такая настройка"
-		), mh_redirect_ip, charsmax(mh_redirect_ip))
-
-		bind_pcvar_float(create_cvar(
-			"mh_redirect_delay",
-			"5.0",
-			.description = "Если mh_redirect = 1^nВремя после подключения до начала редиректа (0.0 - мгновенно)"
-		), mh_redirect_delay)
-
-		bind_pcvar_num(create_cvar(
-			"mh_stop_movements",
-			"1",
-			.description = "Запретить передвижение игрокам? (1 - да, 0 - нет)"
-		), mh_stop_movements)
-
-		bind_pcvar_num(create_cvar(
-			"mh_blind",
-			"1",
-			.description = "Затемнять экран игрокам? (1 - да, 0 - нет)"
-		), mh_blind)
-
-		bind_pcvar_num(create_cvar(
-			"mh_chat_message",
-			"1",
-			.description = "Выводить ли текст mh_chat_message_text в чат? (1 - да, 0 - нет)"
-		), mh_chat_message)
-
-		bind_pcvar_float(create_cvar(
-			"mh_chat_message_interval",
-			"5.0",
-			.description = "Если mh_chat_message = 1^nИнтервал между следующим выводом этого сообщения(0.0 - выведет сообщение только один раз)"
-		), mh_chat_message_interval)
-
-		bind_pcvar_string(create_cvar(
-			"mh_chat_message_text",
-			"!g[Перенаправление] !yК сожалению мы переехали на новый IP адрес!",
-			.description = "Если mh_chat_message = 1^nСообщение, выводимое в чат^nЦвета: !g - зелёный, !t - команды, !y - жёлтый"
-		), mh_chat_message_text, charsmax(mh_chat_message_text))
-
-		bind_pcvar_num(create_cvar(
-			"mh_dhud_message",
-			"1",
-			.description = "Выводить ли текст mh_dhud_message_text в дхуд? (1 - да, 0 - нет)"
-		), mh_dhud_message)
-
-		bind_pcvar_string(create_cvar(
-			"mh_dhud_coord",
-			"-1.0 0.35",
-			.description = "Координаты dhud в формате x y"
-		), mh_dhud_coord, charsmax(mh_dhud_coord))
-
-		bind_pcvar_string(create_cvar(
-			"mh_dhud_colors",
-			"255 255 255",
-			.description = "Цвет dhud в формате RGB"
-		), mh_dhud_colors, charsmax(mh_dhud_colors))
-
-		bind_pcvar_string(create_cvar(
-			"mh_dhud_message_text",
-			"[Перенаправление] К сожалению мы переехали на новый IP адрес!",
-			.description = "Сообщение, выводимое в dhud"
-		), mh_dhud_message_text, charsmax(mh_dhud_message_text))
-
-		AutoExecConfig(.name = CONFIG_FILE)
-	#endif
+	server_cmd("exec addons/amxmodx/configs/plugins/%s.cfg", CONFIG_FILE)
+	server_exec()
+	handle_cvars()
 }
 
-public OnConfigsExecuted()
+public handle_cvars()
 {
-	#if defined AMXX_182
-		mh_redirect = get_cvar_num("mh_redirect")
-		get_cvar_string("mh_redirect_ip", mh_redirect_ip, charsmax(mh_redirect_ip))
-		mh_redirect_delay = get_cvar_float("mh_redirect_delay")
-		mh_stop_movements = get_cvar_num("mh_stop_movements")
-		mh_blind = get_cvar_num("mh_blind")
-		mh_chat_message = get_cvar_num("mh_chat_message")
-		mh_chat_message_interval = get_cvar_float("mh_chat_message_interval")
-		get_cvar_string("mh_chat_message_text", mh_chat_message_text, charsmax(mh_chat_message_text))
-		mh_dhud_message = get_cvar_num("mh_dhud_message")
-		get_cvar_string("mh_dhud_coord", mh_dhud_coord, charsmax(mh_dhud_coord))
-		get_cvar_string("mh_dhud_colors", mh_dhud_colors, charsmax(mh_dhud_colors))
-		get_cvar_string("mh_dhud_message_text", mh_dhud_message_text, charsmax(mh_dhud_message_text))
-	#endif
+	mh_redirect = get_cvar_num("mh_redirect")
+	get_cvar_string("mh_redirect_ip", mh_redirect_ip, charsmax(mh_redirect_ip))
+	mh_redirect_delay = get_cvar_float("mh_redirect_delay")
+	mh_stop_movements = get_cvar_num("mh_stop_movements")
+	mh_blind = get_cvar_num("mh_blind")
+	mh_chat_message = get_cvar_num("mh_chat_message")
+	mh_chat_message_interval = get_cvar_float("mh_chat_message_interval")
+	get_cvar_string("mh_chat_message_text", mh_chat_message_text, charsmax(mh_chat_message_text))
+	mh_dhud_message = get_cvar_num("mh_dhud_message")
+	get_cvar_string("mh_dhud_coord", mh_dhud_coord, charsmax(mh_dhud_coord))
+	get_cvar_string("mh_dhud_colors", mh_dhud_colors, charsmax(mh_dhud_colors))
+	get_cvar_string("mh_dhud_message_text", mh_dhud_message_text, charsmax(mh_dhud_message_text))
 
 	if (mh_chat_message)
 	{
@@ -148,16 +72,16 @@ public OnConfigsExecuted()
 
 	if (mh_dhud_message)
 	{
-		new szLeft[32]
-		strtok(mh_dhud_colors, szLeft, charsmax(szLeft), mh_dhud_colors, charsmax(mh_dhud_colors))
+		new szLeft[32], szRight[32]
+		strtok(mh_dhud_colors, szLeft, charsmax(szLeft), szRight, charsmax(szRight))
 		mh_dhud_icolors[0] = str_to_num(szLeft)
-		strtok(mh_dhud_colors, szLeft, charsmax(szLeft), mh_dhud_colors, charsmax(mh_dhud_colors))
+		strtok(szRight, szLeft, charsmax(szLeft), szRight, charsmax(szRight))
 		mh_dhud_icolors[1] = str_to_num(szLeft)
-		mh_dhud_icolors[2] = str_to_num(mh_dhud_colors)
+		mh_dhud_icolors[2] = str_to_num(szRight)
 
-		strtok(mh_dhud_coord, szLeft, charsmax(szLeft), mh_dhud_coord, charsmax(mh_dhud_coord))
+		strtok(mh_dhud_coord, szLeft, charsmax(szLeft), szRight, charsmax(szRight))
 		mh_dhud_fcoord[0] = str_to_float(szLeft)
-		mh_dhud_fcoord[1] = str_to_float(mh_dhud_coord)
+		mh_dhud_fcoord[1] = str_to_float(szRight)
 	}
 }
 
@@ -220,7 +144,7 @@ public dhud_output(taskid)
 {
 	new id = taskid-TASK_DHUD_MESSAGE
 
-	set_dhudmessage(mh_dhud_icolors[0], mh_dhud_icolors[1], mh_dhud_icolors[2], mh_dhud_fcoord[0], mh_dhud_fcoord[1], 0, 0.0, 3.0, 2.0, 1.0)
+	set_dhudmessage(mh_dhud_icolors[0], mh_dhud_icolors[1], mh_dhud_icolors[2], mh_dhud_fcoord[0], mh_dhud_fcoord[1], 0, 0.0, 0.85, 0.5, 0.5)
 	show_dhudmessage(id, "%s", mh_dhud_message_text)
 }
 
